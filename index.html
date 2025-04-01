@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>400 Million Years and Now</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: white;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    canvas {
+      display: block;
+      position: relative;
+      z-index: 0;
+    }
+    img.bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      transition: opacity 3s;
+    }
+    #introText {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: darkslategray;
+      text-align: center;
+      z-index: 10;
+      font-family: 'Courier New', Courier, monospace;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 20px 30px;
+      border-radius: 10px;
+      max-width: 90%;
+      transition: opacity 1s ease;
+       font-size: .9em;
+    }
+    #introText.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background images -->
+  <img class="bg" src="1.jpg" style="z-index: -8; opacity: 1;">
+  <img class="bg" src="2.jpg" style="z-index: -7; opacity: 0;">
+  <img class="bg" src="3.jpg" style="z-index: -6; opacity: 0;">
+  <img class="bg" src="4.jpg" style="z-index: -5; opacity: 0;">
+  <img class="bg" src="5.jpg" style="z-index: -4; opacity: 0;">
+  <img class="bg" src="6.jpg" style="z-index: -3; opacity: 0;">
+  <img class="bg" src="7.jpg" style="z-index: -2; opacity: 0;">
+  <img class="bg" src="8.jpg" style="z-index: -1; opacity: 0;">
+
+  <!-- Canvas for dots and ripples -->
+  <canvas id="dotCanvas"></canvas>
+
+  <!-- Intro text -->
+  <div id="introText">
+    <h1>Your voice disturbs the ancient sea...</h1>
+    <p>
+      I collected all these fossils last summer in Cincinnati, Ohio.<br>
+      <em>Click anywhere, and start your interaction with sound</em>
+    </p>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("dotCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const gridSpacing = 12;
+    const dotMaxRadius = 2.5;
+    let dots = [];
+
+    let counter = 450000000;
+    const decrementSpeed = 35000;
+
+    class Dot {
+      constructor(x, y, size, opacity) {
+        this.x = x;
+        this.y = y;
+        this.baseX = x;
+        this.baseY = y;
+        this.radius = size;
+        this.opacity = opacity;
+        this.speedX = (Math.random() - 0.5) * 0.05;
+        this.speedY = (Math.random() - 0.5) * 0.05;
+        this.color = `rgba(0, 0, 0, ${this.opacity})`;
+      }
+
+      move() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+
+        const maxOffset = 20;
+        if (Math.abs(this.x - this.baseX) > maxOffset) this.speedX *= -1;
+        if (Math.abs(this.y - this.baseY) > maxOffset) this.speedY *= -1;
+
+        this.speedX *= 0.99;
+        this.speedY *= 0.99;
+      }
+
+      draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function generateCloudOpacity(x, y) {
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const dx = x - cx;
+      const dy = y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxDist = Math.sqrt(cx * cx + cy * cy);
+      return Math.max(0, 1 - dist / maxDist);
+    }
+
+    function initGridDots() {
+      dots = [];
+      for (let x = 0; x < canvas.width; x += gridSpacing) {
+        for (let y = 0; y < canvas.height; y += gridSpacing) {
+          const density = generateCloudOpacity(x, y);
+          if (Math.random() < density) {
+            const radius = dotMaxRadius * density * (0.5 + Math.random());
+            const opacity = density * (0.5 + Math.random() * 0.5);
+            dots.push(new Dot(x, y, radius, opacity));
+          }
+        }
+      }
+    }
+
+    let ripples = [];
+
+    function createRipple(volume) {
+      const ripple = {
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        radius: 0,
+        maxRadius: volume * 150 + 100,
+        opacity: 1
+      };
+      ripples.push(ripple);
+    }
+
+    function updateRipples() {
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const r = ripples[i];
+        r.radius += .9;
+        r.opacity -= 0.005;
+
+        // Push nearby dots
+        dots.forEach(dot => {
+          const dx = dot.x - r.x;
+          const dy = dot.y - r.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < r.radius + 50 && dist > r.radius - 10) {
+            const force = (1 - dist / r.maxRadius) * 0.5;
+            dot.speedX += (dx / dist) * force;
+            dot.speedY += (dy / dist) * force;
+          }
+        });
+
+        if (r.opacity <= 0) {
+          ripples.splice(i, 1);
+        }
+      }
+    }
+
+    function drawRipples() {
+      ripples.forEach(r => {
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${r.opacity})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      });
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      dots.forEach(dot => {
+        dot.move();
+        dot.draw();
+      });
+
+      drawRipples();
+      updateRipples();
+
+      ctx.fillStyle = 'black';
+      ctx.font = `bold ${Math.min(canvas.width, canvas.height) / 14}px Courier`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(counter.toLocaleString(), canvas.width / 2, canvas.height / 2);
+
+      requestAnimationFrame(animate);
+    }
+
+    setInterval(() => {
+      counter -= decrementSpeed;
+      if (counter < 0) counter = 0;
+    }, 50);
+
+    const backgrounds = document.querySelectorAll("img.bg");
+    let bgIndex = 0;
+    setInterval(() => {
+      backgrounds.forEach((bg, i) => {
+        bg.style.opacity = i === bgIndex ? 1 : 0;
+      });
+      bgIndex = (bgIndex + 1) % backgrounds.length;
+    }, 5000);
+
+    function detectBlow() {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const analyser = audioContext.createAnalyser();
+          const microphone = audioContext.createMediaStreamSource(stream);
+          microphone.connect(analyser);
+          analyser.fftSize = 512;
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+
+          function analyzeAudio() {
+            analyser.getByteFrequencyData(dataArray);
+            let avgVolume = dataArray.reduce((a, b) => a + b) / bufferLength;
+
+            if (avgVolume > 30) {
+              createRipple((avgVolume - 30) / 50);
+            }
+
+            requestAnimationFrame(analyzeAudio);
+          }
+
+          analyzeAudio();
+        })
+        .catch(err => {
+          console.error("Microphone access denied", err);
+        });
+    }
+
+    const introText = document.getElementById("introText");
+
+    window.addEventListener("click", () => {
+      detectBlow();
+      if (introText) {
+        introText.classList.add("hidden");
+      }
+    });
+
+    window.addEventListener("resize", () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initGridDots();
+    });
+
+    initGridDots();
+    animate();
+  </script>
+</body>
+</html>
